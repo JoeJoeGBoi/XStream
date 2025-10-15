@@ -186,6 +186,38 @@ ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -f lavfi -i sine=f=1000 -sh
 Open VLC or OBS with `rtmp://localhost/live/stream` to confirm the feed. Once verified, proceed with the regular Google Drive
 streaming flow described above.
 
+#### Option D – Windows 10 (prebuilt bundle)
+
+1. **Download a Windows build** of nginx with the RTMP module, such as the
+   [nginx-rtmp-win32 releases](https://github.com/illuspas/nginx-rtmp-win32/releases).
+   Grab the latest `nginx-rtmp-win32-<version>.zip` and extract it (for example
+   to `C:\nginx-rtmp`).
+2. **Replace the configuration** by copying this repository's `nginx.conf`
+   over the extracted `conf\nginx.conf`.
+3. **Launch the server** from an elevated PowerShell prompt:
+   ```powershell
+   cd C:\nginx-rtmp
+   .\nginx.exe
+   ```
+   The command returns immediately because nginx continues running in the
+   background. Use `./nginx.exe -s stop` to stop it or `./nginx.exe -s reload`
+   after editing the configuration.
+4. **Approve the firewall prompt** for `nginx.exe` the first time it starts so
+   Windows can accept inbound connections on ports `1935` (RTMP) and `8080`
+   (status page). To add the rule manually, run:
+   ```powershell
+   New-NetFirewallRule -DisplayName "nginx-rtmp" -Direction Inbound -Protocol TCP -LocalPort 1935,8080 -Action Allow
+   ```
+5. **Test the server** by sending a sample stream from the same machine:
+   ```powershell
+   ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 `
+          -f lavfi -i sine=f=1000 -shortest `
+          -c:v libx264 -preset veryfast -tune zerolatency `
+          -c:a aac -f flv rtmp://localhost/live/stream
+   ```
+   Confirm playback in VLC/OBS at `rtmp://localhost/live/stream` or visit
+   <http://localhost:8080> to ensure the RTMP status endpoint is live.
+
 ## Troubleshooting
 - **`Unable to initialise Google Drive service`**: Check that `FOLDER_ID` is set and that the credentials JSON path is valid.
 - **`Failed to retrieve Drive files`**: The service account may not have access to the folder; share the folder with the service account email.
