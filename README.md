@@ -91,6 +91,101 @@ XStream reads video files from a Google Drive folder and restreams them to an RT
 - Update `REFRESH_INTERVAL` if you need faster or slower polling of Google Drive.
 - Videos are streamed sequentially. Update `stream_videos` if you need shuffling or filtering logic.
 
+## Installing the Local RTMP Server (nginx-rtmp)
+
+The project ships with an `nginx.conf` tuned for the [nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module). You can
+run the ready-made Docker image (see [Running with Docker Desktop](#running-with-docker-desktop)) or install the server
+directly on your host machine using the walkthrough below.
+
+### 1. Install nginx with RTMP support
+
+#### Option A – Ubuntu/Debian (via apt)
+
+```bash
+sudo apt update
+sudo apt install -y nginx libnginx-mod-rtmp
+```
+
+This pulls the official Ubuntu packages, which already include the RTMP module.
+
+#### Option B – macOS (via Homebrew)
+
+```bash
+brew tap denji/nginx
+brew install nginx-full --with-rtmp-module
+```
+
+If you are already using Homebrew nginx, replace it with the variant above so the RTMP module is available.
+
+#### Option C – Build from source (any Linux)
+
+If your distribution does not package `libnginx-mod-rtmp`, compile nginx with the module yourself:
+
+```bash
+sudo apt update && sudo apt install -y build-essential libpcre3 libpcre3-dev libssl-dev zlib1g-dev
+curl -LO https://nginx.org/download/nginx-1.26.2.tar.gz
+curl -LO https://github.com/arut/nginx-rtmp-module/archive/refs/heads/master.zip
+tar -xzf nginx-1.26.2.tar.gz
+unzip master.zip
+cd nginx-1.26.2
+./configure --with-http_ssl_module --add-module=../nginx-rtmp-module-master
+make -j"$(nproc)"
+sudo make install
+```
+
+Adjust the nginx version as needed. The compiled binary installs into `/usr/local/nginx` by default.
+
+### 2. Copy the bundled configuration
+
+Whichever installation path you used, replace the default configuration with the repo-provided RTMP settings. Copy
+`nginx.conf` from the repository into your nginx configuration directory:
+
+```bash
+sudo cp nginx.conf /etc/nginx/nginx.conf             # Ubuntu/Debian package layout
+sudo cp nginx.conf /usr/local/nginx/conf/nginx.conf  # Source build layout
+```
+
+If you prefer to keep the existing configuration, append the `rtmp { ... }` block from our file instead. Ensure the
+`http` section exposes the status page on port `8080` and the `rtmp` section defines an `application live` block.
+
+### 3. Open the firewall (optional but recommended)
+
+Allow inbound traffic on the RTMP port (1935) and the status dashboard (8080) if you plan to access them remotely:
+
+```bash
+sudo ufw allow 1935/tcp
+sudo ufw allow 8080/tcp
+```
+
+### 4. Start or reload nginx
+
+```bash
+# Using systemd managed nginx
+sudo systemctl restart nginx
+
+# Using the custom build
+sudo /usr/local/nginx/sbin/nginx -s reload  # or -s stop/start for first run
+```
+
+Visit <http://localhost:8080> to confirm the status page loads and shows `RTMP Server Running`. From another terminal you can
+verify the RTMP listener is active:
+
+```bash
+sudo ss -tulpn | grep 1935
+```
+
+### 5. Stream a test feed
+
+Use FFmpeg to send a short test pattern to the server to verify the pipeline before running `drive_autostream.py`:
+
+```bash
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -f lavfi -i sine=f=1000 -shortest \
+  -c:v libx264 -preset veryfast -tune zerolatency -c:a aac -f flv rtmp://localhost/live/stream
+```
+
+Open VLC or OBS with `rtmp://localhost/live/stream` to confirm the feed. Once verified, proceed with the regular Google Drive
+streaming flow described above.
+
 ## Troubleshooting
 - **`Unable to initialise Google Drive service`**: Check that `FOLDER_ID` is set and that the credentials JSON path is valid.
 - **`Failed to retrieve Drive files`**: The service account may not have access to the folder; share the folder with the service account email.
