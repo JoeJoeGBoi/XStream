@@ -24,6 +24,33 @@ XStream reads video files from a Google Drive folder and restreams them to an RT
 | `TWITCH_URL` | ➖ | Optional RTMP endpoint for Twitch, e.g. `rtmp://live.twitch.tv/app/STREAM_KEY`. |
 | `REFRESH_INTERVAL` | ➖ | Seconds to wait before checking Drive again. Defaults to `600` (10 minutes). |
 
+### Step-by-step: gather all required values
+
+1. **Google Drive folder ID (`FOLDER_ID`)**
+   1. Open <https://drive.google.com> and navigate to the folder that contains your videos.
+   2. Copy the value after `folders/` in the browser address bar. Example: `https://drive.google.com/drive/folders/1AbCdEfGhIj` → folder ID `1AbCdEfGhIj`.
+   3. Store this ID—you will paste it into your environment variables or Docker command later.
+
+2. **Service account credentials (`SERVICE_ACCOUNT_FILE`)**
+   1. Browse to the [Google Cloud Console](https://console.cloud.google.com/).
+   2. Create (or select) a project, then enable the **Google Drive API** via *APIs & Services → Library*.
+   3. Go to *APIs & Services → Credentials → Create Credentials → Service account* and follow the prompts.
+   4. After the service account is created, open it and grant the **Role → Basic → Viewer** (sufficient for Drive read access).
+   5. Within the service account page choose *Keys → Add key → Create new key → JSON*. Download the JSON file to a secure location such as `C:\\secrets\\credentials.json` (Windows) or `/home/user/secrets/credentials.json` (Linux/macOS).
+   6. Share the Drive folder from step 1 with the service account email (ends with `iam.gserviceaccount.com`) and give it Viewer access so it can see and download the videos.
+   7. Use the absolute path to this JSON file as the `SERVICE_ACCOUNT_FILE` value. When running Docker you will typically mount the file at `/app/credentials.json`.
+
+3. **Optional downstream RTMP URLs (`YOUTUBE_URL`, `TWITCH_URL`)**
+   - *YouTube Live*: In YouTube Studio open the **Go Live** dashboard. Copy the *Server URL* and *Stream Key*, then combine them into `rtmp://a.rtmp.youtube.com/live2/YOUR_STREAM_KEY`.
+   - *Twitch*: Visit <https://stream.twitch.tv/ingests/> to pick a nearby ingest server and pair it with the stream key from the Twitch Creator Dashboard. Combine them into `rtmp://live.twitch.tv/app/YOUR_STREAM_KEY`.
+   - Omit these variables if you only need the local nginx-rtmp relay.
+
+4. **Local RTMP stream key (`RTMP_STREAM_KEY`)**
+   - Optional suffix for the local nginx-rtmp endpoint. Leaving it blank keeps the default `rtmp://localhost/live/stream`. Set it to another name (e.g. `myshow`) if you prefer a different application path.
+
+5. **Refresh interval (`REFRESH_INTERVAL`)**
+   - Controls how long the script waits before polling Google Drive again after finishing the playlist or finding no files. Supply a number of seconds (e.g. `300` for five minutes) if you want something other than the default 600 seconds.
+
 ## Running on Windows 10 with PowerShell
 1. **Install prerequisites**
    - [Python 3.10+](https://www.python.org/downloads/windows/)
@@ -85,6 +112,26 @@ XStream reads video files from a Google Drive folder and restreams them to an RT
    - Point VLC/OBS at `rtmp://localhost/live/stream`.
    - Visit <http://localhost:8080> to confirm nginx-rtmp is running.
 5. **Stopping** – press `Ctrl+C` in the terminal or run `docker stop <container-id>`.
+
+### Fixing "error during connect: HEAD http://%2F..."
+
+This message means the Docker CLI cannot reach the Docker daemon. Use the checklist below to recover:
+
+1. **Ensure Docker Desktop is running** – launch it and wait until the status reads *Docker engine running*.
+2. **Reset the Docker context** – incorrect contexts leave the CLI pointing at a missing socket.
+   - On **Windows PowerShell** run:
+     ```powershell
+     docker context use default
+     Remove-Item Env:DOCKER_HOST -ErrorAction SilentlyContinue
+     ```
+   - On **macOS/Linux shells** run:
+     ```bash
+     docker context use default
+     unset DOCKER_HOST
+     ```
+3. **WSL users** – if you rely on the WSL2 backend, open Docker Desktop → *Settings → Resources → WSL Integration* and confirm your distribution is enabled. Then restart Docker Desktop.
+
+After these steps, `docker info` should succeed and `docker build -t xstream .` will work normally.
 
 ## Development Tips
 - The script logs progress to stdout; when running in Docker you can view logs with `docker logs <container-id>`.
@@ -222,6 +269,7 @@ streaming flow described above.
 - **`Unable to initialise Google Drive service`**: Check that `FOLDER_ID` is set and that the credentials JSON path is valid.
 - **`Failed to retrieve Drive files`**: The service account may not have access to the folder; share the folder with the service account email.
 - **FFmpeg exit codes**: Inspect the log output for codec or network errors. Ensure the downstream RTMP URLs are reachable and credentials are valid.
+- **`error during connect: HEAD http://%2F...` when running Docker commands**: Follow [Fixing "error during connect"](#fixing-error-during-connect-head-http2f) to reset your Docker context or start Docker Desktop.
 
 ## License
 This project is released under the MIT License.
