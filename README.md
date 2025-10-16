@@ -235,10 +235,32 @@ streaming flow described above.
 
 #### Option D – Windows 10 (prebuilt bundle)
 
-1. **Download a Windows build** of nginx with the RTMP module, such as the
-   [nginx-rtmp-win32 releases](https://github.com/illuspas/nginx-rtmp-win32/releases).
-   Grab the latest `nginx-rtmp-win32-<version>.zip` and extract it (for example
-   to `C:\nginx-rtmp`).
+**New! Automated installer:** Run the bundled batch file from an elevated
+Command Prompt to download, configure, and firewall the RTMP-ready nginx build
+automatically. By default it installs into `C:\nginx-rtmp`, but you can supply
+an alternative directory as the first argument.
+
+```powershell
+cd XStream
+install_rtmp_server.bat
+# or specify a target folder
+install_rtmp_server.bat "D:\\Streaming\\nginx-rtmp"
+```
+
+The script downloads the latest tested archive from the
+[nginx-rtmp-win32](https://github.com/illuspas/nginx-rtmp-win32) project,
+deploys the repository's tuned `nginx.conf`, opens the necessary firewall
+ports (1935 for RTMP and 8080 for the status page), and creates helper scripts
+named `start_nginx.bat` and `stop_nginx.bat` inside the installation folder.
+Use the start script to launch nginx in the background and the stop script to
+shut it down cleanly.
+
+If you prefer to perform the steps manually instead:
+
+1. **Download a Windows build** of nginx with the RTMP module from the
+   [nginx-rtmp-win32 releases](https://github.com/illuspas/nginx-rtmp-win32/releases)
+   page. Grab the latest `nginx-rtmp-win32-<version>.zip` and extract it (for
+   example to `C:\nginx-rtmp`).
 2. **Replace the configuration** by copying this repository's `nginx.conf`
    over the extracted `conf\nginx.conf`.
 3. **Launch the server** from an elevated PowerShell prompt:
