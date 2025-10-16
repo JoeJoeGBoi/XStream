@@ -87,6 +87,16 @@ XStream reads video files from a Google Drive folder and restreams them to an RT
    ```powershell
    python drive_autostream.py
    ```
+   The script accepts command-line flags so you can override any environment
+   variables directly. Run `python drive_autostream.py --help` for the full
+   list. Common overrides include:
+
+   ```powershell
+   python drive_autostream.py --folder-id "1AbCdEfGhIj" `
+                              --service-account-file "C:\secrets\credentials.json" `
+                              --refresh-interval 900 `
+                              --stream-key "myshow"
+   ```
 8. **Verify the RTMP endpoint**
    - Open VLC or OBS and connect to `rtmp://localhost/live/stream` (or your custom stream key).
    - Alternatively check the nginx status endpoint at <http://localhost:8080> for `RTMP Server Running`.
@@ -108,6 +118,17 @@ XStream reads video files from a Google Drive folder and restreams them to an RT
      xstream
    ```
    Replace optional environment variables with your own values or omit them if you only need the local RTMP relay.
+   You can also forward CLI overrides to the container, for example:
+
+   ```powershell
+   docker run --rm -it \
+     -p 1935:1935 -p 8080:8080 \
+     -v C:\secrets\credentials.json:/app/credentials.json:ro \
+     -e FOLDER_ID="YOUR_GOOGLE_DRIVE_FOLDER_ID" \
+     xstream \
+     python drive_autostream.py --once --log-level DEBUG
+   ```
+   The example above performs a single playlist pass with verbose logging.
 4. **Test the stream**
    - Point VLC/OBS at `rtmp://localhost/live/stream`.
    - Visit <http://localhost:8080> to confirm nginx-rtmp is running.
